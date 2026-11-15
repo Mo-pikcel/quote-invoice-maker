@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F1F1F">
+<meta name="description" content="Make quotes and invoices on your phone, with automatic totals and PDF export.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Quotes">
+<title>Quote & Invoice Maker</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' data: blob:; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<script src="vendor/jspdf.umd.min.js"></script>
+<style>
+:root{--accent:#2BB673;--accent-soft:#E8F6EE;--ink:#1F1F1F;--muted:#6B7280;--line:#E5E7EB;--bg:#F6F7F9;--card:#fff;--danger:#DC2626;--r:12px}
+*{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
+.vh{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;opacity:0}
+.paste{width:100%;margin-top:10px;padding:10px 12px;border:1px dashed #CBD5E1;border-radius:10px;background:#fff;font-size:13px;color:var(--muted)}
+html,body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.4;-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+.wrap{max-width:760px;margin:0 auto;padding:0 14px 110px}
+header.top{position:sticky;top:0;z-index:20;background:var(--ink);color:#fff}
+header.top .in{max-width:760px;margin:0 auto;display:flex;align-items:center;gap:10px;padding:12px 14px;min-height:56px}
+header.top h1{font-size:17px;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header.top .logo{height:30px;max-width:90px;object-fit:contain;background:#fff;border-radius:6px;padding:2px 4px}
+.ibtn{background:transparent;border:0;color:inherit;width:40px;height:40px;border-radius:10px;display:grid;place-items:center;cursor:pointer;flex:none}
+.ibtn:active{background:rgba(255,255,255,.15)}
+.ibtn svg{width:22px;height:22px}
+.tabs{display:flex;gap:6px;margin:14px 0 10px;background:#E9EBEF;padding:4px;border-radius:12px}
+.tabs button{flex:1;border:0;background:transparent;padding:9px 6px;border-radius:9px;font-weight:600;color:var(--muted);cursor:pointer}
+.tabs button.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.search{width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:var(--r);background:#fff;margin-bottom:12px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.stat{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:12px}
+.stat b{display:block;font-size:17px;margin-top:2px}
+.stat span{font-size:12px;color:var(--muted)}
+.list{display:flex;flex-direction:column;gap:8px}
+.item{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;display:flex;gap:10px;align-items:center;cursor:pointer}
+.item:active{background:#FAFAFA}
+.item .m{flex:1;min-width:0}
+.item .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .s{font-size:12.5px;color:var(--muted);margin-top:2px}
+.item .a{text-align:right;font-weight:600;white-space:nowrap}
+.badge{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;background:#EEF0F3;color:#374151;margin-top:4px}
+.b-Sent{background:#E0EDFF;color:#1D4ED8}.b-Accepted,.b-Paid{background:var(--accent-soft);color:#0F7A47}.b-Declined,.b-Overdue{background:#FDE8E8;color:#B91C1C}.b-Invoiced{background:#F3E8FF;color:#7E22CE}
+.empty{text-align:center;color:var(--muted);padding:40px 16px}
+.empty h3{color:var(--ink);font-size:17px;margin-bottom:6px}
+.fab{position:fixed;right:max(18px,calc(50% - 362px));bottom:22px;z-index:30;background:var(--accent);color:#fff;border:0;border-radius:99px;padding:15px 22px;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.2);display:flex;gap:8px;align-items:center;cursor:pointer}
+.fab svg{width:20px;height:20px}
+.card{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-top:12px}
+.card h2{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+label.f{display:block;margin-bottom:10px}
+label.f>span{display:block;font-size:12.5px;color:var(--muted);margin-bottom:4px;font-weight:500}
+.in-t{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;outline:none;min-height:42px}
+.in-t:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+textarea.in-t{resize:vertical;min-height:70px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.seg{display:flex;background:#E9EBEF;border-radius:10px;padding:3px;gap:3px}
+.seg button{flex:1;border:0;background:transparent;padding:8px;border-radius:8px;font-weight:600;color:var(--muted);cursor:pointer}
+.seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0}
+.tg{position:relative;width:46px;height:28px;flex:none}
+.tg input{opacity:0;width:0;height:0}
+.tg i{position:absolute;inset:0;background:#D1D5DB;border-radius:99px;transition:.2s;cursor:pointer}
+.tg i:before{content:"";position:absolute;width:22px;height:22px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.tg input:checked+i{background:var(--accent)}
+.tg input:checked+i:before{transform:translateX(18px)}
+.li{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;background:#FCFCFD}
+.li.sec{background:var(--accent-soft);border-color:transparent}
+.li .hd{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.li .no{font-size:12px;font-weight:700;color:var(--muted);flex:1}
+.li .mini{border:0;background:#fff;border:1px solid var(--line);width:32px;height:32px;border-radius:8px;display:grid;place-items:center;cursor:pointer;color:var(--muted)}
+.li .mini svg{width:16px;height:16px}
+.li .grid{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:8px;margin-top:8px}
+.li .grid small{display:block;font-size:11px;color:var(--muted);margin-bottom:3px}
+.li .amt{display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:var(--muted)}
+.li .amt b{color:var(--ink)}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:#fff;padding:10px 14px;border-radius:10px;font-weight:600;cursor:pointer;display:inline-flex;gap:6px;align-items:center;justify-content:center}
+.btn svg{width:18px;height:18px}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.dark{background:var(--ink);border-color:var(--ink);color:#fff}
+.btn.danger{color:var(--danger)}
+.btn.full{width:100%}
+.btn:disabled{opacity:.5}
+.tot{display:flex;justify-content:space-between;padding:5px 0;font-size:14.5px}
+.tot.g{font-weight:700;font-size:18px;border-top:1px solid var(--line);margin-top:6px;padding-top:10px}
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:25;background:#fff;border-top:1px solid var(--line);box-shadow:0 -4px 14px rgba(0,0,0,.06)}
+.bar .in{max-width:760px;margin:0 auto;padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px;align-items:center}
+.bar .sum{flex:1;min-width:0}
+.bar .sum small{display:block;font-size:11.5px;color:var(--muted)}
+.bar .sum b{font-size:18px}
+.dirty{color:#B45309;font-size:11.5px;font-weight:600}
+.logo-box{display:flex;align-items:center;gap:12px}
+.logo-prev{width:120px;height:64px;border:1px dashed #CBD5E1;border-radius:10px;display:grid;place-items:center;background:#fff;overflow:hidden;color:var(--muted);font-size:12px;text-align:center}
+.logo-prev img{max-width:100%;max-height:100%;object-fit:contain}
+.hint{font-size:12px;color:var(--muted);margin-top:-4px;margin-bottom:10px}
+.note{font-size:12.5px;padding:10px 12px;border-radius:10px;background:#F1F5F9;color:#334155;margin-top:10px}
+.note.ok{background:var(--accent-soft);color:#0F5132}
+.note.warn{background:#FEF3C7;color:#92400E}
+.modal{position:fixed;inset:0;z-index:60;background:rgba(15,23,42,.45);display:flex;align-items:flex-end;justify-content:center}
+.modal .box{background:#fff;width:100%;max-width:480px;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));max-height:85vh;overflow:auto}
+@media(min-width:600px){.modal{align-items:center}.modal .box{border-radius:18px}}
+.modal h3{font-size:17px;margin-bottom:6px}
+.modal p{color:var(--muted);margin-bottom:14px}
+.sheet button.opt{display:flex;width:100%;gap:12px;align-items:center;padding:13px 10px;border:0;background:transparent;border-radius:10px;font-weight:500;cursor:pointer;text-align:left}
+.sheet button.opt:active{background:#F3F4F6}
+.sheet button.opt svg{width:20px;height:20px;color:var(--muted)}
+.sheet button.opt.red{color:var(--danger)}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:80;background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;box-shadow:0 6px 18px rgba(0,0,0,.25);max-width:90vw;text-align:center}
+.sugg{position:relative}
+.sugg .dd{position:absolute;left:0;right:0;top:100%;z-index:10;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 20px rgba(0,0,0,.1);max-height:220px;overflow:auto}
+.sugg .dd button{display:block;width:100%;text-align:left;padding:10px 12px;border:0;background:transparent;cursor:pointer}
+.sugg .dd button:active,.sugg .dd button:hover{background:#F3F4F6}
+.sugg .dd small{color:var(--muted);display:block;font-size:12px}
+.loading{padding:60px 0;text-align:center;color:var(--muted)}
+.welcome{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px 18px;margin-top:16px;text-align:center}
+.welcome h2{font-size:20px;margin-bottom:6px}
+.welcome p{color:var(--muted);margin-bottom:16px}
+.swatches{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.swatches button{width:30px;height:30px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line);cursor:pointer}
+.swatches button.on{box-shadow:0 0 0 2px var(--ink)}
+.swatches input[type=color]{width:34px;height:34px;border:0;background:none;padding:0}
+</style>
+</head>
+<body>
+<header class="top"><div class="in" id="hdr"></div></header>
+<main class="wrap" id="main"><div class="loading">Loading…</div></main>
+<div id="layer"></div>
+
+<script>
+/* ============ helpers ============ */
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const safeLogo = v => /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(String(v || "")) ? v : "";
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const num = v => { const n = parseFloat(String(v ?? "").replace(/\s/g, "").replace(",", ".")); return isFinite(n) ? n : 0; };
+const r2 = n => Math.round((n + Number.EPSILON) * 100) / 100;
+const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+const addDays = (iso, n) => { if (!iso) return ""; const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + (+n || 0)); return d.toISOString().slice(0, 10); };
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const fmtDate = iso => { if (!iso) return ""; const [y, m, d] = iso.split("-"); return `${+d} ${MONTHS[+m - 1]} ${y}`; };
+function money(n, sym) {
+  sym = sym ?? (S.settings.currency || "R");
+  const neg = n < 0; n = Math.abs(r2(n));
+  const [i, f] = n.toFixed(2).split(".");
+  return (neg ? "-" : "") + (sym ? sym + " " : "") + i.replace(/\B(?=(\d{3})+(?!\d))/g, " ") + "." + f;
+}
+const ICON = {
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
+  gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>',
+  more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>',
+  up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>',
+  down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>',
+  pdf: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15l3 3 3-3"/></svg>',
+  copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>',
+  inv: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>',
+  tag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1.5"/></svg>',
+};
+
+/* ============ state ============ */
+const DEFAULT_SETTINGS = {
+  name: "", address: "", regNo: "", vatNo: "", phone: "", email: "", website: "",
+  bank: "", signName: "", signTitle: "Director",
+  logo: "", logoW: 0, logoH: 0, accent: "#2BB673",
+  currency: "R", vatOn: false, vatRate: 15,
+  quoteFormat: "{n}/{yy}", quoteStart: 1, invoiceFormat: "INV{n}/{yy}", invoiceStart: 1,
+  validDays: 60, payDays: 30,
+  quoteNotes: "", invoiceNotes: "Please use the invoice number as your payment reference.",
+};
+const S = { settings: { ...DEFAULT_SETTINGS }, docs: {}, view: "home", tab: "all", q: "", cur: null, dirty: false, mode: "local", ready: false, setupDone: false, syncNote: "" };
+let caps = { db: null, user: null, downloads: undefined, uid: null };
+
+/* ============ storage ============ */
+const LS = {
+  get(k) { try { const v = localStorage.getItem("qim_" + k); return v ? JSON.parse(v) : null; } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem("qim_" + k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+};
+const settingsRef = () => caps.db.doc("data/users/" + caps.uid + "/settings");
+const docsCol = () => settingsRef().collection("docs");
+
+const store = {
+  async saveSettings(s) {
+    if (S.mode === "cloud") { await settingsRef().set(JSON.parse(JSON.stringify(s))); }
+    else if (!LS.set("settings", s)) throw new Error("Could not save on this device");
+  },
+  async saveDoc(d) {
+    d.updated = Date.now();
+    if (S.mode === "cloud") { await docsCol().doc(d.id).set(JSON.parse(JSON.stringify(d))); }
+    else { S.docs[d.id] = d; if (!LS.set("docs", S.docs)) throw new Error("Could not save on this device"); }
+    S.docs[d.id] = d;
+  },
+  async deleteDoc(id) {
+    if (S.mode === "cloud") await docsCol().doc(id).delete();
+    delete S.docs[id];
+    if (S.mode !== "cloud") LS.set("docs", S.docs);
+  },
+};
+
+async function withRetry(fn) {
+  try { return await fn(); }
+  catch (e) {
+    if (e && e.code === "unavailable") { await new Promise(r => setTimeout(r, 600 + Math.random() * 800)); return await fn(); }
+    throw e;
+  }
+}
+const errMsg = e => e?.code === "quota_exceeded" ? "Storage is full. Delete some old documents and try again." : (e?.message || "Something went wrong");
+
+async function init() {
+  // try Claude cloud storage
+  if (window.claude && typeof window.claude.use === "function") {
+    const safeUse = n => Promise.resolve().then(() => claude.use(n)).catch(() => null);
+    claude.use && safeUse("downloads").then(dl => { caps.downloads = dl; });
+    const [db, user] = await Promise.all([safeUse("db"), safeUse("user")]);
+    caps.db = db; caps.user = user;
+    if (db && user) { try { caps.uid = await user.id(); } catch (e) { caps.uid = null; } if (caps.uid) S.mode = "cloud"; }
+  }
+  if (S.mode === "cloud") {
+    let timer = setTimeout(() => { S.syncNote = "Can't reach your saved data yet. Check your connection."; render(); }, 10000);
+    try {
+      const snap = await withRetry(() => settingsRef().get());
+      if (snap.exists) { S.settings = { ...DEFAULT_SETTINGS, ...snap.data() }; S.setupDone = true; }
+    } catch (e) { S.syncNote = "Couldn't load your business details: " + errMsg(e); }
+    let first = true;
+    docsCol().onSnapshot(snap => {
+      const m = {}; snap.docs.forEach(d => { m[d.id] = d.data(); });
+      S.docs = m;
+      if (!snap.metadata.fromCache) { clearTimeout(timer); if (S.syncNote.startsWith("Can't reach")) S.syncNote = ""; }
+      if (first) { first = false; S.ready = true; render(); }
+      else if (S.view === "home") render();
+    }, e => { clearTimeout(timer); S.syncNote = "Live sync stopped: " + errMsg(e); S.ready = true; render(); });
+  } else {
+    const s = LS.get("settings"); if (s) { S.settings = { ...DEFAULT_SETTINGS, ...s }; S.settings.logo = safeLogo(S.settings.logo); S.setupDone = true; }
+    S.docs = LS.get("docs") || {};
+    S.ready = true; render();
+  }
+  if (!window.claude && "serviceWorker" in navigator && location.protocol === "https:") {
+    try { navigator.serviceWorker.register("sw.js").catch(() => {}); } catch (e) {}
+    try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
+  }
+}
+
+/* ============ numbering & totals ============ */
+function nextSeq(type) {
+  const start = Math.max(1, parseInt(S.settings[type === "invoice" ? "invoiceStart" : "quoteStart"]) || 1);
+  let max = start - 1;
+  Object.values(S.docs).forEach(d => { if (d.type === type && d.seq > max) max = d.seq; });
+  return max + 1;
+}
+function formatNo(type, seq, dateISO) {
+  const f = S.settings[type === "invoice" ? "invoiceFormat" : "quoteFormat"] || "{n}";
+  const y = (dateISO || todayISO()).slice(0, 4);
+  return f.replace(/\{n\}/g, seq).replace(/\{nnn\}/g, String(seq).padStart(3, "0")).replace(/\{yy\}/g, y.slice(2)).replace(/\{yyyy\}/g, y);
+}
+function totals(d) {
+  let sub = 0;
+  (d.items || []).forEach(it => { if (it.kind !== "section") sub += r2(num(it.qty) * num(it.rate)); });
+  sub = r2(sub);
+  const vat = d.vatOn ? r2(sub * num(d.vatRate) / 100) : 0;
+  return { sub, vat, total: r2(sub + vat) };
+}
+function newDoc(type) {
+  const date = todayISO(), seq = nextSeq(type);
+  return {
+    id: uid(), type, seq, number: formatNo(type, seq, date), status: "Draft",
+    date, dueDate: addDays(date, type === "invoice" ? S.settings.payDays : S.settings.validDays),
+    reference: "", client: { name: "", address: "", phone: "", email: "" }, delivery: "",
+    items: [{ id: uid(), kind: "item", desc: "", unit: "", qty: 1, rate: "" }],
+    vatOn: !!S.settings.vatOn, vatRate: num(S.settings.vatRate) || 15,
+    notes: type === "invoice" ? S.settings.invoiceNotes : S.settings.quoteNotes,
+    created: Date.now(), updated: Date.now(),
+  };
+}
+const label = t => t === "invoice" ? "Invoice" : "Quote";
+const STATUSES = { quote: ["Draft", "Sent", "Accepted", "Declined", "Invoiced"], invoice: ["Draft", "Sent", "Paid", "Overdue"] };
+
+/* ============ UI bits ============ */
+function toast(msg) {
+  const t = document.createElement("div"); t.className = "toast"; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), 2600);
+}
+function modal(html, onMount) {
+  const L = $("#layer");
+  L.innerHTML = `<div class="modal"><div class="box">${html}</div></div>`;
+  const m = L.firstElementChild;
+  m.addEventListener("click", e => { if (e.target === m) closeModal(); });
+  onMount && onMount(m);
+  return m;
+}
+const closeModal = () => { $("#layer").innerHTML = ""; };
+function confirmBox(title, text, okLabel, danger) {
+  return new Promise(res => {
+    modal(`<h3>${esc(title)}</h3><p>${esc(text)}</p><div class="btns" style="justify-content:flex-end">
+      <button class="btn" data-a="no">Cancel</button><button class="btn ${danger ? "dark" : "pri"}" data-a="yes" style="${danger ? "background:var(--danger);border-color:var(--danger)" : ""}">${esc(okLabel || "OK")}</button></div>`, m => {
+      m.querySelector('[data-a="no"]').onclick = () => { closeModal(); res(false); };
+      m.querySelector('[data-a="yes"]').onclick = () => { closeModal(); res(true); };
+    });
+  });
+}
+function applyAccent() {
+  const a = /^#[0-9a-f]{6}$/i.test(S.settings.accent) ? S.settings.accent : "#2BB673";
+  document.documentElement.style.setProperty("--accent", a);
+  document.documentElement.style.setProperty("--accent-soft", mix(a, "#ffffff", 0.88));
+}
+function mix(a, b, t) {
+  const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const A = p(a), B = p(b);
+  return "#" + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, "0")).join("");
+}
+
+/* ============ render ============ */
+function render() {
+  applyAccent();
+  if (!S.ready) return;
+  if (!S.setupDone && S.view === "home") return renderWelcome();
+  if (S.view === "home") renderHome();
+  else if (S.view === "edit") renderEditor();
+  else if (S.view === "business") renderBusiness();
+}
+
+function setHeader(left, title, right) {
+  $("#hdr").innerHTML = `${left || ""}<h1>${title}</h1>${right || ""}`;
+}
+
+function renderWelcome() {
+  setHeader("", "Quote & Invoice Maker");
+  $("#main").innerHTML = `<div class="welcome">
+    <h2>Welcome</h2>
+    <p>Add your logo and business details once. They'll show on every quote and invoice you make.</p>
+    ${window.claude ? "" : `<p style="font-size:13px">Everything you enter stays on this phone. Nothing is sent to anyone.</p>`}
+    <button class="btn pri full" id="go">Set up my business</button>
+  </div>${syncNoteHTML()}`;
+  $("#go").onclick = () => { S.view = "business"; render(); };
+}
+let installEvt = null;
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; if (S.view === "home" && S.setupDone) render(); });
+window.addEventListener("appinstalled", () => { installEvt = null; LS.set("hideInstall", true); render(); });
+const isInstalled = () => { try { return matchMedia("(display-mode: standalone)").matches || navigator.standalone === true; } catch (e) { return false; } };
+function installHTML() {
+  if (window.claude || isInstalled() || LS.get("hideInstall")) return "";
+  const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (installEvt) return `<div class="note ok" style="display:flex;gap:10px;align-items:center"><span style="flex:1">Install this app on your phone for quick access.</span><button class="btn pri" id="instBtn">Install</button><button class="ibtn" id="instX" aria-label="Dismiss" style="width:32px;height:32px">${ICON.x}</button></div>`;
+  if (ios) return `<div class="note ok" style="display:flex;gap:10px;align-items:center"><span style="flex:1">To install: tap <b>Share</b> in Safari, then <b>Add to Home Screen</b>.</span><button class="ibtn" id="instX" aria-label="Dismiss" style="width:32px;height:32px">${ICON.x}</button></div>`;
+  return "";
+}
+function backupHTML() {
+  if (window.claude || S.mode === "cloud") return "";
+  const n = Object.keys(S.docs).length; if (!n) return "";
+  const last = LS.get("lastBackup") || 0;
+  if (Date.now() - last < 14 * 864e5) return "";
+  return `<div class="note warn" style="display:flex;gap:10px;align-items:center"><span style="flex:1">Your ${n} document${n > 1 ? "s are" : " is"} saved on this phone only. ${last ? "Last backup over 2 weeks ago." : "You haven't made a backup yet."}</span><button class="btn" id="bkNow">Back up</button></div>`;
+}
+function doBackup() {
+  const data = JSON.stringify({ app: "quote-invoice-maker", version: 1, exported: new Date().toISOString(), settings: S.settings, docs: Object.values(S.docs) }, null, 1);
+  saveFile(`backup-${todayISO()}.json`, new Blob([data], { type: "application/json" })).then(ok => { if (ok !== false) { LS.set("lastBackup", Date.now()); if (S.view === "home") render(); } });
+}
+const syncNoteHTML = () => S.syncNote ? `<div class="note warn">${esc(S.syncNote)}</div>` : "";
+
+function renderHome() {
+  const st = S.settings;
+  setHeader(st.logo ? `<img class="logo" src="${safeLogo(st.logo)}" alt="">` : "", esc(st.name || "My Business"),
+    `<button class="ibtn" id="bizBtn" aria-label="Business settings">${ICON.gear}</button>`);
+  $("#bizBtn").onclick = () => { S.view = "business"; render(); };
+
+  const all = Object.values(S.docs);
+  const unpaid = all.filter(d => d.type === "invoice" && d.status !== "Paid" && d.status !== "Draft");
+  const openQ = all.filter(d => d.type === "quote" && (d.status === "Sent" || d.status === "Draft"));
+  const q = S.q.trim().toLowerCase();
+  let list = all.filter(d => S.tab === "all" || d.type === S.tab);
+  if (q) list = list.filter(d => [d.number, d.client?.name, d.reference, d.status].join(" ").toLowerCase().includes(q));
+  list.sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.created || 0) - (a.created || 0));
+
+  $("#main").innerHTML = `
+    ${syncNoteHTML()}${installHTML()}${backupHTML()}
+    <div class="stats">
+      <div class="stat"><span>Unpaid invoices (${unpaid.length})</span><b>${money(unpaid.reduce((s, d) => s + totals(d).total, 0))}</b></div>
+      <div class="stat"><span>Open quotes (${openQ.length})</span><b>${money(openQ.reduce((s, d) => s + totals(d).total, 0))}</b></div>
+    </div>
+    <div class="tabs">${["all", "quote", "invoice"].map(t => `<button data-t="${t}" class="${S.tab === t ? "on" : ""}">${t === "all" ? "All" : label(t) + "s"}</button>`).join("")}</div>
+    <input class="search" id="q" placeholder="Search number, client, status" value="${esc(S.q)}">
+    <div class="list">${list.length ? list.map(d => {
+      const t = totals(d);
+      return `<div class="item" data-id="${d.id}"><div class="m">
+        <div class="t">${esc(d.client?.name || "No client yet")}</div>
+        <div class="s">${label(d.type)} ${esc(d.number)} · ${fmtDate(d.date)}</div>
+        <span class="badge b-${esc(d.status)}">${esc(d.status)}</span></div>
+        <div class="a">${money(t.total)}</div></div>`;
+    }).join("") : `<div class="empty"><h3>${all.length ? "Nothing matches" : "No quotes or invoices yet"}</h3>${all.length ? "Try another search." : "Tap <b>New</b> to make your first one."}</div>`}</div>`;
+
+  document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => { S.tab = b.dataset.t; renderHome(); });
+  const ib = $("#instBtn"); if (ib) ib.onclick = async () => { const e = installEvt; installEvt = null; try { e.prompt(); await e.userChoice; } catch (er) {} renderHome(); };
+  const ix = $("#instX"); if (ix) ix.onclick = () => { LS.set("hideInstall", true); renderHome(); };
+  const bn = $("#bkNow"); if (bn) bn.onclick = doBackup;
+  const qi = $("#q"); qi.oninput = () => { S.q = qi.value; const pos = qi.selectionStart; renderHome(); const n = $("#q"); n.focus(); n.setSelectionRange(pos, pos); };
+  document.querySelectorAll(".item").forEach(el => el.onclick = () => openDoc(el.dataset.id));
+
+  let fab = $("#fab");
+  if (!fab) { fab = document.createElement("button"); fab.id = "fab"; fab.className = "fab"; document.body.appendChild(fab); }
+  fab.innerHTML = ICON.plus + "New"; fab.style.display = "";
+  fab.onclick = () => {
+    modal(`<div class="sheet"><h3 style="margin-bottom:8px">Create new</h3>
+      <button class="opt" data-t="quote">${ICON.tag} Quote</button>
+      <button class="opt" data-t="invoice">${ICON.pdf} Invoice</button></div>`, m => {
+      m.querySelectorAll(".opt").forEach(b => b.onclick = () => { closeModal(); S.cur = newDoc(b.dataset.t); S.dirty = true; S.view = "edit"; render(); });
+    });
+  };
+}
+function renderHeaderLogoOnly() { /* header on business view has no logo; home re-renders on return */ }
+function hideFab() { const f = $("#fab"); if (f) f.style.display = "none"; }
+function removeBar() { const b = $("#bar"); if (b) b.remove(); }
+
+function openDoc(id) {
+  S.cur = JSON.parse(JSON.stringify(S.docs[id]));
+  S.cur.items = S.cur.items || []; S.cur.client = S.cur.client || {};
+  S.dirty = false; S.view = "edit"; render();
+}
+
+async function leaveEditor() {
+  if (S.dirty && !(await confirmBox("Discard changes?", "You have unsaved changes to this " + label(S.cur.type).toLowerCase() + ".", "Discard", true))) return;
+  S.cur = null; S.dirty = false; S.view = "home"; removeBar(); render();
+}
+
+/* ---------- editor ---------- */
+function renderEditor() {
+  hideFab();
+  const d = S.cur, isInv = d.type === "invoice", exists = !!S.docs[d.id];
+  setHeader(`<button class="ibtn" id="bk" aria-label="Back">${ICON.back}</button>`,
+    `${exists ? "" : "New "}${label(d.type)} ${esc(d.number)}`,
+    `<button class="ibtn" id="mr" aria-label="More">${ICON.more}</button>`);
+  $("#bk").onclick = leaveEditor;
+  $("#mr").onclick = moreMenu;
+
+  $("#main").innerHTML = `
+    <div class="card"><h2>Details</h2>
+      <div class="row2">
+        <label class="f"><span>${label(d.type)} number</span><input class="in-t" data-k="number" value="${esc(d.number)}"></label>
+        <label class="f"><span>Status</span><select class="in-t" data-k="status">${STATUSES[d.type].map(s => `<option ${s === d.status ? "selected" : ""}>${s}</option>`).join("")}</select></label>
+      </div>
+      <div class="row2">
+        <label class="f"><span>Date</span><input type="date" class="in-t" data-k="date" value="${esc(d.date)}"></label>
+        <label class="f"><span>${isInv ? "Due date" : "Valid until"}</span><input type="date" class="in-t" data-k="dueDate" value="${esc(d.dueDate)}"></label>
+      </div>
+      <label class="f" style="margin-bottom:0"><span>Reference / order no. (optional)</span><input class="in-t" data-k="reference" value="${esc(d.reference)}" placeholder="e.g. PO 4521"></label>
+    </div>
+
+    <div class="card"><h2>${isInv ? "Bill to" : "Quote to"}</h2>
+      <div class="sugg"><label class="f"><span>Client name</span><input class="in-t" data-k="client.name" id="cname" autocomplete="off" value="${esc(d.client.name)}" placeholder="Company or person"></label><div class="dd" id="cdd" hidden></div></div>
+      <label class="f"><span>Address</span><textarea class="in-t" data-k="client.address" placeholder="Street&#10;Suburb, City&#10;Postal code">${esc(d.client.address)}</textarea></label>
+      <div class="row2">
+        <label class="f" style="margin-bottom:0"><span>Phone</span><input class="in-t" type="tel" data-k="client.phone" value="${esc(d.client.phone)}"></label>
+        <label class="f" style="margin-bottom:0"><span>Email</span><input class="in-t" type="email" data-k="client.email" value="${esc(d.client.email)}"></label>
+      </div>
+      <div class="switch" style="margin-top:10px"><span>Different delivery address</span><label class="tg"><input type="checkbox" id="delTg" ${d.delivery ? "checked" : ""}><i></i></label></div>
+      <label class="f" id="delBox" ${d.delivery ? "" : "hidden"} style="margin-bottom:0"><span>Delivery address</span><textarea class="in-t" data-k="delivery" placeholder="Name&#10;Street / stand number&#10;Area, postal code">${esc(d.delivery)}</textarea></label>
+    </div>
+
+    <div class="card"><h2>Items</h2>
+      <div id="items"></div>
+      <div class="btns"><button class="btn pri" id="addIt">${ICON.plus} Add item</button><button class="btn" id="addSec">${ICON.plus} Add heading</button></div>
+    </div>
+
+    <div class="card"><h2>Totals</h2>
+      <div class="switch"><span>Charge VAT</span><label class="tg"><input type="checkbox" id="vatTg" ${d.vatOn ? "checked" : ""}><i></i></label></div>
+      <label class="f" id="vatBox" ${d.vatOn ? "" : "hidden"}><span>VAT rate (%)</span><input class="in-t" inputmode="decimal" data-k="vatRate" value="${esc(d.vatRate)}"></label>
+      <div class="tot"><span>Subtotal</span><span id="tSub"></span></div>
+      <div class="tot" id="tVatRow"><span id="tVatL"></span><span id="tVat"></span></div>
+      <div class="tot g"><span>Total</span><span id="tTot"></span></div>
+    </div>
+
+    <div class="card"><h2>Notes & terms</h2>
+      <textarea class="in-t" data-k="notes" placeholder="${isInv ? "Payment terms, thank-you note…" : "Exclusions, lead times, terms…"}">${esc(d.notes)}</textarea>
+      <div class="hint" style="margin-top:6px">${isInv ? "Your banking details are added to the invoice PDF automatically." : `"This quote is valid until …" is added to the PDF automatically.`}</div>
+    </div>`;
+
+  // bottom bar
+  let bar = $("#bar");
+  if (!bar) { bar = document.createElement("div"); bar.id = "bar"; bar.className = "bar"; document.body.appendChild(bar); }
+  bar.innerHTML = `<div class="in"><div class="sum"><small>Total <span class="dirty" id="dirtyM"></span></small><b id="barTot"></b></div>
+    <button class="btn" id="pdfBtn">${ICON.pdf} PDF</button><button class="btn pri" id="saveBtn">Save</button></div>`;
+  $("#saveBtn").onclick = () => saveCur();
+  $("#pdfBtn").onclick = () => exportPDF();
+
+  // bind fields
+  $("#main").querySelectorAll("[data-k]").forEach(el => {
+    const ev = el.tagName === "SELECT" || el.type === "date" ? "change" : "input";
+    el.addEventListener(ev, () => {
+      const k = el.dataset.k;
+      if (k.startsWith("client.")) d.client[k.slice(7)] = el.value; else d[k] = el.value;
+      if (k === "date" && !d._dueTouched) {
+        d.dueDate = addDays(d.date, isInv ? S.settings.payDays : S.settings.validDays);
+        $('[data-k="dueDate"]').value = d.dueDate;
+      }
+      if (k === "dueDate") d._dueTouched = true;
+      markDirty(); if (k === "vatRate") updTotals();
+    });
+  });
+  $("#delTg").onchange = e => { $("#delBox").hidden = !e.target.checked; if (!e.target.checked) { d.delivery = ""; $('[data-k="delivery"]').value = ""; } markDirty(); };
+  $("#vatTg").onchange = e => { d.vatOn = e.target.checked; $("#vatBox").hidden = !d.vatOn; markDirty(); updTotals(); };
+  $("#addIt").onclick = () => { d.items.push({ id: uid(), kind: "item", desc: "", unit: "", qty: 1, rate: "" }); markDirty(); renderItems(); focusLast(); };
+  $("#addSec").onclick = () => { d.items.push({ id: uid(), kind: "section", desc: "" }); markDirty(); renderItems(); focusLast(); };
+  clientSuggest();
+  renderItems(); updTotals(); markDirty(S.dirty);
+}
+function focusLast() { const all = document.querySelectorAll("#items .li [data-f='desc']"); const el = all[all.length - 1]; if (el) { el.focus(); el.scrollIntoView({ block: "center", behavior: "smooth" }); } }
+
+function markDirty(v = true) { S.dirty = v; const m = $("#dirtyM"); if (m) m.textContent = v ? "· unsaved" : ""; }
+
+function renderItems() {
+  const d = S.cur; let n = 0;
+  $("#items").innerHTML = d.items.map((it, i) => {
+    const ctr = `<button class="mini" data-mv="-1" aria-label="Move up">${ICON.up}</button><button class="mini" data-mv="1" aria-label="Move down">${ICON.down}</button><button class="mini" data-del aria-label="Remove">${ICON.x}</button>`;
+    if (it.kind === "section") return `<div class="li sec" data-i="${i}"><div class="hd"><span class="no">HEADING</span>${ctr}</div>
+      <input class="in-t" data-f="desc" value="${esc(it.desc)}" placeholder="e.g. Building structure"></div>`;
+    n++;
+    return `<div class="li" data-i="${i}"><div class="hd"><span class="no">ITEM ${n}</span>${ctr}</div>
+      <textarea class="in-t" data-f="desc" rows="1" style="min-height:42px" placeholder="Description">${esc(it.desc)}</textarea>
+      <div class="grid">
+        <div><small>Unit</small><input class="in-t" data-f="unit" value="${esc(it.unit)}" placeholder="m², no."></div>
+        <div><small>Qty</small><input class="in-t" data-f="qty" inputmode="decimal" value="${esc(it.qty)}"></div>
+        <div><small>Rate (${esc(S.settings.currency || "")})</small><input class="in-t" data-f="rate" inputmode="decimal" value="${esc(it.rate)}" placeholder="0.00"></div>
+      </div>
+      <div class="amt"><span>Amount</span><b data-amt>${money(num(it.qty) * num(it.rate))}</b></div></div>`;
+  }).join("") || `<div class="empty" style="padding:16px">No items yet.</div>`;
+  $("#items").querySelectorAll(".li").forEach(row => {
+    const i = +row.dataset.i, it = d.items[i];
+    row.querySelectorAll("[data-f]").forEach(el => el.addEventListener("input", () => {
+      it[el.dataset.f] = el.value; markDirty();
+      if (el.dataset.f === "qty" || el.dataset.f === "rate") { row.querySelector("[data-amt]").textContent = money(num(it.qty) * num(it.rate)); updTotals(); }
+    }));
+    row.querySelectorAll("[data-mv]").forEach(b => b.onclick = () => {
+      const j = i + +b.dataset.mv; if (j < 0 || j >= d.items.length) return;
+      [d.items[i], d.items[j]] = [d.items[j], d.items[i]]; markDirty(); renderItems();
+    });
+    row.querySelector("[data-del]").onclick = () => { d.items.splice(i, 1); markDirty(); renderItems(); updTotals(); };
+  });
+}
+function updTotals() {
+  const d = S.cur, t = totals(d);
+  $("#tSub").textContent = money(t.sub);
+  $("#tVatRow").style.display = d.vatOn ? "" : "none";
+  $("#tVatL").textContent = `VAT ${num(d.vatRate)}%`;
+  $("#tVat").textContent = money(t.vat);
+  $("#tTot").textContent = money(t.total);
+  const bt = $("#barTot"); if (bt) bt.textContent = money(t.total);
+}
+function clientSuggest() {
+  const inp = $("#cname"), dd = $("#cdd");
+  const clients = {};
+  Object.values(S.docs).sort((a, b) => (a.updated || 0) - (b.updated || 0)).forEach(x => { if (x.client?.name) clients[x.client.name.trim().toLowerCase()] = x.client; });
+  const show = () => {
+    const q = inp.value.trim().toLowerCase();
+    const hits = Object.values(clients).filter(c => c.name.toLowerCase().includes(q) && c.name.toLowerCase() !== q).slice(0, 6);
+    if (!hits.length) { dd.hidden = true; return; }
+    dd.innerHTML = hits.map((c, i) => `<button type="button" data-i="${i}">${esc(c.name)}<small>${esc((c.address || "").split("\n")[0])}</small></button>`).join("");
+    dd.hidden = false;
+    dd.querySelectorAll("button").forEach(b => b.onmousedown = b.ontouchstart = ev => {
+      ev.preventDefault(); const c = hits[+b.dataset.i];
+      S.cur.client = { name: c.name, address: c.address || "", phone: c.phone || "", email: c.email || "" };
+      inp.value = c.name; $('[data-k="client.address"]').value = c.address || ""; $('[data-k="client.phone"]').value = c.phone || ""; $('[data-k="client.email"]').value = c.email || "";
+      dd.hidden = true; markDirty();
+    });
+  };
+  inp.addEventListener("input", show); inp.addEventListener("focus", show);
+  inp.addEventListener("blur", () => setTimeout(() => dd.hidden = true, 150));
+}
+
+async function saveCur(silent) {
+  const d = S.cur; const btn = $("#saveBtn");
+  if (!d.number.trim()) { toast("Add a " + label(d.type).toLowerCase() + " number first"); return false; }
+  const clash = Object.values(S.docs).find(x => x.id !== d.id && x.type === d.type && x.number.trim() === d.number.trim());
+  if (clash && !(await confirmBox("Number already used", `${label(d.type)} ${d.number} already exists. Save anyway?`, "Save anyway"))) return false;
+  const clean = JSON.parse(JSON.stringify(d)); delete clean._dueTouched;
+  clean.items = clean.items.filter(it => it.kind === "section" ? it.desc.trim() : (it.desc.trim() || num(it.rate)));
+  if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
+  try {
+    await withRetry(() => store.saveDoc(clean));
+    S.cur.updated = clean.updated; markDirty(false);
+    if (!silent) toast(label(d.type) + " saved");
+    const t = $("#hdr h1"); if (t) t.textContent = `${label(d.type)} ${d.number}`;
+    return true;
+  } catch (e) { toast(errMsg(e)); return false; }
+  finally { if (btn) { btn.disabled = false; btn.textContent = "Save"; } }
+}
+
+function moreMenu() {
+  const d = S.cur, exists = !!S.docs[d.id];
+  modal(`<div class="sheet"><h3 style="margin-bottom:8px">${label(d.type)} ${esc(d.number)}</h3>
+    <button class="opt" data-a="pdf">${ICON.pdf} Download PDF</button>
+    ${d.type === "quote" ? `<button class="opt" data-a="inv">${ICON.inv} Turn into invoice</button>` : ""}
+    <button class="opt" data-a="dup">${ICON.copy} Duplicate as new ${label(d.type).toLowerCase()}</button>
+    ${exists ? `<button class="opt red" data-a="del">${ICON.trash} Delete</button>` : ""}</div>`, m => {
+    m.querySelectorAll(".opt").forEach(b => b.onclick = async () => {
+      closeModal(); const a = b.dataset.a;
+      if (a === "pdf") exportPDF();
+      if (a === "inv") toInvoice();
+      if (a === "dup") duplicate(d.type);
+      if (a === "del" && await confirmBox("Delete this " + label(d.type).toLowerCase() + "?", `${label(d.type)} ${d.number} will be removed for good.`, "Delete", true)) {
+        try { await withRetry(() => store.deleteDoc(d.id)); toast("Deleted"); S.cur = null; S.dirty = false; S.view = "home"; removeBar(); render(); }
+        catch (e) { toast(errMsg(e)); }
+      }
+    });
+  });
+}
+async function toInvoice() {
+  if (S.dirty && !(await saveCur(true))) return;
+  const q = S.cur, inv = newDoc("invoice");
+  Object.assign(inv, { client: { ...q.client }, delivery: q.delivery, items: JSON.parse(JSON.stringify(q.items)).map(it => ({ ...it, id: uid() })), vatOn: q.vatOn, vatRate: q.vatRate, reference: q.reference || ("Quote " + q.number), fromQuote: q.id });
+  if (S.docs[q.id]) {
+    const upd = { ...S.docs[q.id], status: "Invoiced" };
+    try { await withRetry(() => store.saveDoc(upd)); } catch (e) { toast(errMsg(e)); }
+  }
+  S.cur = inv; S.dirty = true; render(); toast("Invoice created. Check it, then Save.");
+  window.scrollTo(0, 0);
+}
+async function duplicate(type) {
+  const src = S.cur, n = newDoc(type);
+  Object.assign(n, { client: { ...src.client }, delivery: src.delivery, items: JSON.parse(JSON.stringify(src.items)).map(it => ({ ...it, id: uid() })), vatOn: src.vatOn, vatRate: src.vatRate, notes: src.notes });
+  if (S.dirty && !(await confirmBox("Unsaved changes", "Duplicate without saving this one first?", "Duplicate"))) return;
+  S.cur = n; S.dirty = true; render(); toast("Copy created. Edit, then Save."); window.scrollTo(0, 0);
+}
+
+/* ---------- business settings ---------- */
+function renderBusiness() {
+  hideFab(); removeBar();
+  const st = { ...S.settings };
+  const first = !S.setupDone;
+  setHeader(first ? "" : `<button class="ibtn" id="bk" aria-label="Back">${ICON.back}</button>`, first ? "Set up your business" : "Business details");
+  if (!first) $("#bk").onclick = () => { S.view = "home"; render(); };
+  const SW = ["#2BB673", "#2563EB", "#DC2626", "#F59E0B", "#7C3AED", "#0F766E", "#1F1F1F"];
+  const f = (k, lab, ph = "", type = "text", extra = "") => `<label class="f"><span>${lab}</span><input class="in-t" type="${type}" data-s="${k}" value="${esc(st[k])}" placeholder="${esc(ph)}" ${extra}></label>`;
+  const ta = (k, lab, ph = "") => `<label class="f"><span>${lab}</span><textarea class="in-t" data-s="${k}" placeholder="${esc(ph)}">${esc(st[k])}</textarea></label>`;
+
+  $("#main").innerHTML = `
+    ${syncNoteHTML()}
+    <div class="card"><h2>Logo & brand colour</h2>
+      <div class="logo-box"><div class="logo-prev" id="lp">${st.logo ? `<img src="${safeLogo(st.logo)}" alt="Logo">` : "No logo"}</div>
+        <div class="btns" style="flex-direction:column;align-items:flex-start">
+          <button type="button" class="btn" id="logoBtn">${st.logo ? "Change logo" : "Upload logo"}</button>
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/*" id="logoIn" class="vh" tabindex="-1" aria-hidden="true">
+          ${st.logo ? `<button class="btn danger" id="logoRm">Remove</button>` : ""}
+        </div></div>
+      <input class="paste" id="logoPaste" placeholder="Or copy your logo image and paste it here" autocomplete="off">
+      <div class="hint" style="margin-top:8px">PNG or JPG. A wide logo on a white or clear background works best. It saves as soon as you add it.</div>
+      <div class="swatches" style="margin-top:6px">${SW.map(c => `<button data-c="${c}" style="background:${c}" class="${st.accent.toLowerCase() === c.toLowerCase() ? "on" : ""}" aria-label="Colour ${c}"></button>`).join("")}<input type="color" id="acc" value="${esc(st.accent)}" aria-label="Custom colour"></div>
+    </div>
+    <div class="card"><h2>Company</h2>
+      ${f("name", "Company name *", "e.g. Nenwani Business Enterprise")}
+      ${ta("address", "Address", "Street / stand number\nArea, town\nPostal code")}
+      <div class="row2">${f("regNo", "Registration no.", "2023/000000/07")}${f("vatNo", "VAT no. (if registered)")}</div>
+      <div class="row2">${f("phone", "Phone", "", "tel")}${f("email", "Email", "", "email")}</div>
+      ${f("website", "Website (optional)")}
+      <div class="row2">${f("signName", "Signed by", "e.g. RM Khosa")}${f("signTitle", "Title", "Director")}</div>
+    </div>
+    <div class="card"><h2>Banking details</h2>
+      ${ta("bank", "Shown on invoices", "Bank: \nAccount name: \nAccount no: \nBranch code: ")}
+    </div>
+    <div class="card"><h2>Defaults</h2>
+      <div class="switch"><span>Charge VAT by default</span><label class="tg"><input type="checkbox" data-s="vatOn" ${st.vatOn ? "checked" : ""}><i></i></label></div>
+      <div class="row2">${f("vatRate", "VAT rate (%)", "15", "text", 'inputmode="decimal"')}${f("currency", "Currency symbol", "R")}</div>
+      <div class="row2">${f("validDays", "Quotes valid for (days)", "60", "text", 'inputmode="numeric"')}${f("payDays", "Invoices due in (days)", "30", "text", 'inputmode="numeric"')}</div>
+      <div class="row2">${f("quoteFormat", "Quote number format", "{n}/{yy}")}${f("quoteStart", "First quote number", "1", "text", 'inputmode="numeric"')}</div>
+      <div class="row2">${f("invoiceFormat", "Invoice number format", "INV{n}/{yy}")}${f("invoiceStart", "First invoice number", "1", "text", 'inputmode="numeric"')}</div>
+      <div class="hint">{n} = number, {nnn} = number padded to 3 digits (001), {yy} = year (26), {yyyy} = 2026. Example: "{n}/{yy}" gives 12/26.</div>
+      ${ta("quoteNotes", "Default quote notes", "e.g. 50% deposit required before work starts.")}
+      ${ta("invoiceNotes", "Default invoice notes")}
+    </div>
+    <div class="btns" style="margin-top:14px"><button class="btn pri full" id="saveBiz">${first ? "Save and start" : "Save details"}</button></div>
+    ${first ? "" : `<div class="card"><h2>Backup</h2>
+      <div class="note ${S.mode === "cloud" ? "ok" : "warn"}" style="margin-top:0">${S.mode === "cloud" ? "Your quotes and invoices are saved to your Claude account and show up on any phone or computer you sign in on." : "Your data is saved on this device only. Make a backup now and then so you don't lose it."}</div>
+      <div class="btns" style="margin-top:10px"><button class="btn" id="expB">Download backup</button><button type="button" class="btn" id="impBtn">Restore backup</button><input type="file" accept=".json,application/json" id="impB" class="vh" tabindex="-1" aria-hidden="true"></div></div>`}`;
+
+  $("#main").querySelectorAll("[data-s]").forEach(el => {
+    el.addEventListener(el.type === "checkbox" ? "change" : "input", () => { st[el.dataset.s] = el.type === "checkbox" ? el.checked : el.value; });
+  });
+  $("#main").querySelectorAll(".swatches button").forEach(b => b.onclick = () => {
+    st.accent = b.dataset.c; $("#acc").value = b.dataset.c;
+    document.querySelectorAll(".swatches button").forEach(x => x.classList.toggle("on", x === b));
+    S.settings.accent = st.accent; applyAccent();
+  });
+  $("#acc").oninput = e => { st.accent = e.target.value; document.querySelectorAll(".swatches button").forEach(x => x.classList.remove("on")); S.settings.accent = st.accent; applyAccent(); };
+  let lastFile = null;
+  const useLogo = async file => {
+    if (!file || file === lastFile) return; lastFile = file;
+    if (/heic|heif/i.test(file.type) || /\.hei[cf]$/i.test(file.name || "")) { toast("That's an iPhone HEIC photo. Save the logo as PNG or JPG, then try again."); return; }
+    $("#lp").textContent = "Loading…";
+    try {
+      const r = await processLogo(file);
+      Object.assign(st, r);
+      $("#lp").innerHTML = `<img src="${safeLogo(r.logo)}" alt="Logo">`;
+      if (S.setupDone) {
+        const ns = { ...S.settings, logo: r.logo, logoW: r.logoW, logoH: r.logoH };
+        try { await withRetry(() => store.saveSettings(ns)); S.settings = ns; toast("Logo saved"); renderHeaderLogoOnly(); }
+        catch (e) { toast("Logo added, but saving failed: " + errMsg(e) + ". Tap Save details."); }
+      } else toast("Logo added");
+    } catch (err) {
+      $("#lp").innerHTML = st.logo ? `<img src="${safeLogo(st.logo)}" alt="Logo">` : "No logo";
+      toast("Couldn't read that image. Try a PNG or JPG file.");
+    }
+  };
+  $("#logoBtn").onclick = () => { const i = $("#logoIn"); i.value = ""; i.click(); };
+  $("#lp").onclick = () => $("#logoBtn").click();
+  $("#logoIn").onchange = e => useLogo(e.target.files && e.target.files[0]);
+  $("#logoIn").oninput = e => useLogo(e.target.files && e.target.files[0]);
+  $("#logoPaste").addEventListener("paste", e => {
+    const items = [...(e.clipboardData?.items || [])];
+    const it = items.find(x => x.kind === "file" && x.type.startsWith("image/"));
+    e.preventDefault(); e.target.value = "";
+    if (it) useLogo(it.getAsFile()); else toast("No image found. Copy the logo picture itself, then paste.");
+  });
+  $("#logoPaste").addEventListener("input", e => { e.target.value = ""; });
+  const rm = $("#logoRm"); if (rm) rm.onclick = () => { st.logo = ""; st.logoW = st.logoH = 0; $("#lp").textContent = "No logo"; rm.remove(); };
+  $("#saveBiz").onclick = async () => {
+    if (!String(st.name).trim()) { toast("Add your company name"); return; }
+    ["vatRate", "validDays", "payDays", "quoteStart", "invoiceStart"].forEach(k => st[k] = num(st[k]));
+    const btn = $("#saveBiz"); btn.disabled = true; btn.textContent = "Saving…";
+    try {
+      await withRetry(() => store.saveSettings(st));
+      S.settings = st; S.setupDone = true; toast("Business details saved"); S.view = "home"; render();
+    } catch (e) { toast(errMsg(e)); btn.disabled = false; btn.textContent = "Save details"; }
+  };
+  const ex = $("#expB"); if (ex) ex.onclick = doBackup;
+  const ib = $("#impBtn"); if (ib) ib.onclick = () => { const i = $("#impB"); i.value = ""; i.click(); };
+  const im = $("#impB"); if (im) im.onchange = async e => {
+    const file = e.target.files[0]; if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      if (!data || !Array.isArray(data.docs)) throw new Error("bad");
+      if (!(await confirmBox("Restore backup?", `This adds or replaces ${data.docs.length} documents and your business details from the backup.`, "Restore"))) return;
+      toast("Restoring…");
+      if (data.settings) { const ns = { ...DEFAULT_SETTINGS, ...data.settings }; ns.logo = safeLogo(ns.logo); if (!ns.logo) ns.logoW = ns.logoH = 0; await withRetry(() => store.saveSettings(ns)); S.settings = ns; S.setupDone = true; }
+      for (const d of data.docs) { if (d && d.id && d.type) await withRetry(() => store.saveDoc(d)); }
+      toast("Backup restored"); S.view = "home"; render();
+    } catch (err) { toast(err.message === "bad" ? "That file isn't a backup from this app" : errMsg(err)); }
+    e.target.value = "";
+  };
+}
+
+async function decodeImage(file) {
+  if (window.createImageBitmap) { try { const b = await createImageBitmap(file); return { src: b, w: b.width, h: b.height }; } catch (e) {} }
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    return { src: img, w: img.naturalWidth, h: img.naturalHeight };
+  } catch (e) {
+    // last resort: data URL
+    const data = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(file); });
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = data; });
+    return { src: img, w: img.naturalWidth, h: img.naturalHeight };
+  } finally { setTimeout(() => URL.revokeObjectURL(url), 5000); }
+}
+async function processLogo(file) {
+  const { src, w: W0, h: H0 } = await decodeImage(file);
+  if (!W0 || !H0) throw new Error("empty image");
+  const maxW = 600, maxH = 240, sc = Math.min(1, maxW / W0, maxH / H0);
+  const w = Math.max(1, Math.round(W0 * sc)), h = Math.max(1, Math.round(H0 * sc));
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  c.getContext("2d").drawImage(src, 0, 0, w, h);
+  let url = c.toDataURL("image/png");
+  if (url.length > 180000) { const c2 = document.createElement("canvas"); c2.width = w; c2.height = h; const y = c2.getContext("2d"); y.fillStyle = "#fff"; y.fillRect(0, 0, w, h); y.drawImage(src, 0, 0, w, h); url = c2.toDataURL("image/jpeg", 0.85); }
+  return { logo: url, logoW: w, logoH: h };
+}
+/* ============ file save ============ */
+async function saveFile(name, blob) {
+  if (window.claude && typeof window.claude.use === "function" && caps.downloads === undefined) {
+    caps.downloads = await Promise.resolve().then(() => claude.use("downloads")).catch(() => null);
+  }
+  if (caps.downloads) {
+    try { await caps.downloads.save({ filename: name, data: blob }); }
+    catch (e) {
+      const c = e?.code;
+      if (c === "declined") return;
+      if (c === "rate_limited") toast("A save is already open. Finish it, then try again.");
+      else toast("Couldn't save the file" + (e?.message ? ": " + e.message : ""));
+    }
+    return;
+  }
+  if (window.claude && caps.downloads === null) { toast("Downloads aren't available in this view. Open the app at claude.ai in your phone's browser."); return; }
+  // standalone: share on phones if possible, else download
+  try {
+    const file = new File([blob], name, { type: blob.type });
+    if (/Android|iPhone|iPad/i.test(navigator.userAgent) && navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: name }); return true;
+    }
+  } catch (e) { if (e?.name === "AbortError") return false; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  return true;
+}
+
+/* ============ PDF ============ */
+async function exportPDF() {
+  if (!window.jspdf) { toast("PDF tool is still loading. Try again in a moment."); return; }
+  const d = S.cur;
+  if (!d.number.trim()) { toast("Add a " + label(d.type).toLowerCase() + " number first"); return; }
+  let blob;
+  try { blob = buildPDF(d, S.settings); }
+  catch (e) { console.error(e); toast("Couldn't make the PDF: " + e.message); return; }
+  const safe = s => String(s || "").replace(/[^\w\-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+  const name = `${label(d.type)}-${safe(d.number)}${d.client?.name ? "-" + safe(d.client.name) : ""}.pdf`;
+  const saving = saveFile(name, blob);
+  if (S.dirty) saveCur(true);
+  await saving;
+}
+
+const pdfSafe = v => String(v ?? "").replace(/²/g, "2").replace(/³/g, "3").replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/…/g, "...").replace(/[^\x00-\xFF–—€•]/g, "");
+function buildPDF(d, st) {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ unit: "mm", format: "a4" });
+  const PW = 210, PH = 297, M = 15, CW = PW - 2 * M;
+  const hex = h => { h = /^#[0-9a-f]{6}$/i.test(h) ? h : "#2BB673"; return [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); };
+  const ACC = hex(st.accent), SOFT = hex(mix(/^#[0-9a-f]{6}$/i.test(st.accent) ? st.accent : "#2BB673", "#ffffff", 0.88)), INK = [31, 31, 31], MUT = [107, 114, 128];
+  const cur = st.currency || "R";
+  const m = n => money(n, cur);
+  const isInv = d.type === "invoice";
+  const T = (txt, x, y, o = {}) => {
+    pdf.setFont("helvetica", o.bold ? "bold" : "normal"); pdf.setFontSize(o.size || 9.5);
+    pdf.setTextColor(...(o.color || INK)); pdf.text(pdfSafe(txt), x, y, { align: o.align || "left", maxWidth: o.maxWidth });
+  };
+  const lines = s => String(s || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+  // header
+  let y = M, logoBottom = M;
+  if (safeLogo(st.logo) && st.logoW && st.logoH) {
+    const bw = 62, bh = 24, sc = Math.min(bw / st.logoW, bh / st.logoH);
+    const w = st.logoW * sc, h = st.logoH * sc;
+    try { pdf.addImage(st.logo, st.logo.startsWith("data:image/jpeg") ? "JPEG" : "PNG", M, M, w, h, undefined, "FAST"); logoBottom = M + h; } catch (e) {}
+  }
+  let ry = M + 4;
+  T(st.name || "", PW - M, ry, { bold: true, size: 12, align: "right" }); ry += 5;
+  const comp = [...lines(st.address), st.regNo && "Reg No: " + st.regNo, st.vatNo && "VAT No: " + st.vatNo, st.phone && "Tel: " + st.phone, st.email, st.website].filter(Boolean);
+  comp.forEach(l => { T(l, PW - M, ry, { size: 8.5, align: "right", color: [55, 65, 81] }); ry += 3.9; });
+  y = Math.max(logoBottom, ry) + 8;
+
+  T(isInv ? "INVOICE" : "QUOTATION", M, y, { bold: true, size: 22 });
+  y += 3.5; pdf.setDrawColor(...ACC); pdf.setLineWidth(0.8); pdf.line(M, y, PW - M, y); y += 8;
+
+  // address columns
+  const col = (title, arr, x, w) => {
+    let yy = y; T(title, x, yy, { bold: true, size: 8, color: ACC }); yy += 4.5;
+    arr.forEach((l, i) => { const ws = pdf.splitTextToSize(l, w); pdf.setFont("helvetica", i === 0 ? "bold" : "normal"); ws.forEach(s => { T(s, x, yy, { bold: i === 0, size: 9.5 }); yy += 4.3; }); });
+    return yy;
+  };
+  const cl = d.client || {};
+  const clientLines = [cl.name, ...lines(cl.address), cl.phone && "Tel: " + cl.phone, cl.email].filter(Boolean);
+  let y1 = col(isInv ? "BILL TO" : "QUOTE TO", clientLines.length ? clientLines : ["—"], M, 62);
+  let y2 = y;
+  if (d.delivery) y2 = col("DELIVERY TO", lines(d.delivery), M + 66, 52);
+  const meta = [["DATE", fmtDate(d.date)], [isInv ? "INVOICE NO" : "QUOTE NO", d.number], [isInv ? "DUE DATE" : "VALID UNTIL", fmtDate(d.dueDate)]];
+  if (d.reference) meta.push(["REFERENCE", d.reference]);
+  let y3 = y;
+  meta.forEach(([k, v]) => { if (!v) return; T(k + ":", PW - M - 34, y3, { bold: true, size: 8, align: "right", color: [55, 65, 81] }); T(v, PW - M, y3, { size: 9.5, align: "right" }); y3 += 5; });
+  y = Math.max(y1, y2, y3) + 6;
+
+  // table
+  const C = [{ h: "ITEM", w: 12, a: "center" }, { h: "DESCRIPTION", w: 86, a: "left" }, { h: "UNIT", w: 16, a: "center" }, { h: "QTY", w: 14, a: "center" }, { h: "RATE", w: 26, a: "right" }, { h: "AMOUNT", w: 26, a: "right" }];
+  const X = []; let acc = M; C.forEach(c => { X.push(acc); acc += c.w; });
+  const tx = (i) => C[i].a === "center" ? X[i] + C[i].w / 2 : C[i].a === "right" ? X[i] + C[i].w - 2 : X[i] + 2;
+  const LIMIT = PH - 22;
+  const head = () => {
+    pdf.setFillColor(...INK); pdf.rect(M, y, CW, 7.5, "F");
+    C.forEach((c, i) => T(c.h, tx(i), y + 5, { bold: true, size: 8.5, color: [255, 255, 255], align: c.a }));
+    y += 7.5;
+  };
+  head();
+  pdf.setDrawColor(210, 214, 220); pdf.setLineWidth(0.2);
+  let n = 0;
+  (d.items || []).forEach(it => {
+    if (it.kind === "section") {
+      if (!String(it.desc || "").trim()) return;
+      const h = 7;
+      if (y + h > LIMIT) { pdf.addPage(); y = M; head(); }
+      pdf.setFillColor(...SOFT); pdf.rect(M, y, CW, h, "F"); pdf.rect(M, y, CW, h, "S");
+      T(String(it.desc).toUpperCase(), X[1] + 2, y + 4.8, { bold: true, size: 9 });
+      y += h; return;
+    }
+    if (!String(it.desc || "").trim() && !num(it.rate)) return;
+    n++;
+    pdf.setFont("helvetica", "normal"); pdf.setFontSize(9.5);
+    const ds = pdf.splitTextToSize(pdfSafe(it.desc), C[1].w - 4);
+    const h = Math.max(7, ds.length * 4.2 + 3);
+    if (y + h > LIMIT) { pdf.addPage(); y = M; head(); pdf.setDrawColor(210, 214, 220); pdf.setLineWidth(0.2); }
+    const vals = [String(n), null, it.unit || "", String(it.qty ?? ""), m(num(it.rate)), m(num(it.qty) * num(it.rate))];
+    C.forEach((c, i) => {
+      pdf.rect(X[i], y, c.w, h, "S");
+      if (i === 1) ds.forEach((s, k) => T(s, tx(1), y + 4.8 + k * 4.2, { size: 9.5 }));
+      else T(vals[i], tx(i), y + 4.8, { size: 9.5, align: c.a });
+    });
+    y += h;
+  });
+
+  // totals (right) + notes/bank (left)
+  const t = totals(d);
+  const rows = [["SUBTOTAL", m(t.sub)]];
+  if (d.vatOn) rows.push([`VAT ${num(d.vatRate)}%`, m(t.vat)]);
+  rows.push([isInv ? "TOTAL DUE" : "TOTAL", m(t.total)]);
+  const LW = CW - 80;
+  const blocks = [];
+  if (!isInv && d.dueDate) blocks.push(["VALIDITY", `This quote is valid until ${fmtDate(d.dueDate)}.`]);
+  if (String(d.notes || "").trim()) blocks.push(["NOTES", d.notes]);
+  if (isInv && String(st.bank || "").trim()) blocks.push(["BANKING DETAILS", st.bank]);
+  pdf.setFontSize(9);
+  const wrapped = blocks.map(([h, txt]) => [h, lines(txt).flatMap(l => pdf.splitTextToSize(l, LW))]);
+  const leftH = wrapped.reduce((a, [, ls]) => a + 4.5 + ls.length * 4.2 + 3.5, 0);
+  const totH = rows.length * 7.5 + 0.5;
+  if (y + 4 + Math.max(leftH, totH) > LIMIT) { pdf.addPage(); y = M; }
+  y += 6;
+  const top = y, bx = PW - M - 72;
+  rows.forEach((r, i) => {
+    const last = i === rows.length - 1;
+    if (last) { pdf.setFillColor(...INK); pdf.rect(bx, y, 72, 8, "F"); }
+    else { pdf.setDrawColor(210, 214, 220); pdf.setLineWidth(0.2); pdf.rect(bx, y, 72, 7.5, "S"); }
+    T(r[0], bx + 38, y + 5.2, { bold: true, size: 9, align: "right", color: last ? [255, 255, 255] : INK });
+    T(r[1], PW - M - 2, y + 5.2, { bold: true, size: last ? 10.5 : 9.5, align: "right", color: last ? [255, 255, 255] : INK });
+    y += last ? 8 : 7.5;
+  });
+  const totEnd = y;
+  let ly = top + 3;
+  wrapped.forEach(([h, ls]) => {
+    T(h, M, ly, { bold: true, size: 8, color: ACC }); ly += 4.5;
+    ls.forEach(l => { T(l, M, ly, { size: 9 }); ly += 4.2; }); ly += 3.5;
+  });
+  y = Math.max(totEnd, ly) + 8;
+  if (st.signName || st.signTitle) {
+    if (y + 20 > LIMIT) { pdf.addPage(); y = M; }
+    T("Kind regards", M, y, { size: 9.5 }); y += 14;
+    pdf.setDrawColor(...INK); pdf.setLineWidth(0.3); pdf.line(M, y, M + 60, y); y += 4.5;
+    T([st.signTitle, st.signName].filter(Boolean).join(": "), M, y, { bold: true, size: 9.5 });
+  }
+
+  // footer
+  const pages = pdf.getNumberOfPages();
+  for (let p = 1; p <= pages; p++) {
+    pdf.setPage(p);
+    T(`${st.name || ""}${pages > 1 ? `   ·   Page ${p} of ${pages}` : ""}`, PW / 2, PH - 9, { size: 7.5, align: "center", color: MUT });
+  }
+  return pdf.output("blob");
+}
+
+/* keep the hardware back button sensible in standalone mode */
+window.addEventListener("beforeunload", e => { if (S.dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+render();
+init();
+</script>
+</body>
+</html>
